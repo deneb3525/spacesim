@@ -6,9 +6,20 @@ public class ShipStats : MonoBehaviour
 {
 
     public float acceleration;
-    public float yaw;
-    public float pitch;
-    public float roll;
+    public float latAccel;
     public float maxSpeed;
-    public float maxRotation;
+    public float maxroll;
+
+    public float yawMax;
+    public float yawAccel;
+
+    public float pitchMax;
+    public float pitchAccel;
+
+    public float rollMax;
+    public float rollAccel;
+
+    public float rudderStr;
+    public float thrust;
+    public float drag;
 }

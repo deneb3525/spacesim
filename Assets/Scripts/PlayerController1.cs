@@ -7,17 +7,19 @@ using System;
 public class PlayerController1 : MonoBehaviour
 {
     public ShipStats ship;
+    public PID xPid = new PID(100.0f, 0, 0, -1, 1);
+    public PID yPid = new PID(100.0f, 0, 0, -1, 1);
+    public PID zPid = new PID(100.0f, 0, 0, -1, 1);
 
-    public Text currentSpeed;
-    public Text currentHeading;
-    public Text antiSlideActive;
-    public Text antiTumbleActive;
-    public Text accelerationMode;
+    bool capRotation = true;
+    bool accelRotation = true;
+    public Text text1;
+    public Text text2;
+    public Text text3;
+    public Text text4;
 
-    private bool antiTumble = true;
-    private bool antiSlide = true;
-    private bool spacebreak = false;
-    private bool velocityTranslation = false;
+
+
 
 
     private Rigidbody rb;
@@ -26,188 +28,167 @@ public class PlayerController1 : MonoBehaviour
     {
         Debug.Log("started");
         rb = GetComponent<Rigidbody>();
+        rb.maxAngularVelocity = 9;
     }
 
     private void Update()
     {
-        Debug.Log(Input.GetAxis("Jump"));
         TrackToggles();
+        UpdateText();
     }
 
     void FixedUpdate()
     {
         RotateCraft();
-        //AccelerateCraft();
+        AccelCraft();
         UpdateText();
     }
 
     private void TrackToggles()
     {
-        if (Input.GetButtonDown("antiDrift")) antiTumble = !antiTumble;
-        if (Input.GetButtonDown("antiSlide")) antiSlide = !antiSlide;
-        if (Input.GetButtonDown("velocityControl")) velocityTranslation = !velocityTranslation;
-
-        if (Input.GetButton("spacebreak")) spacebreak = true;
-        else spacebreak = false;
-    }
+        if (Input.GetButtonDown("capRotation")) capRotation = !capRotation;
+        if (Input.GetButtonDown("accelRotation")) accelRotation = !accelRotation;
+     }
 
 
     private void UpdateText()
     {
-        Vector3 lspd = transform.InverseTransformVector(rb.velocity);
-        currentSpeed.text = "Speed: " + rb.velocity.magnitude + " x:" + lspd.x + " y:" + lspd.y + " z:" + lspd.z;
-        currentHeading.text = "Heading: " + rb.velocity.normalized.ToString ();
-        antiSlideActive.text = "AntiSlide: " + antiSlide;
-        antiTumbleActive.text = "AntiTumble: " + antiTumble;
-        if(velocityTranslation) { accelerationMode.text = "Velocity mode"; }
-        else { accelerationMode.text = "Acceleration mode"; }
+        Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
+        text1.text = rb.angularVelocity.ToString();
+        Vector3 v3 = new Vector3(-velocity.x, -velocity.y, 0) * ship.rudderStr;
+        text2.text = v3.ToString();
+        
+        text3.text = transform.InverseTransformDirection(rb.velocity).normalized.ToString();
+        text4.text = rb.velocity.ToString();
+
+    }
+
+    void AccelCraft()
+    {
+        // apply acceleration
+        rb.AddRelativeForce(Vector3.forward * Input.GetAxis("thrust") * ship.thrust);
+
+        // apply rudder
+        Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
+        rb.AddRelativeForce(new Vector3(-velocity.x, -velocity.y, 0) * ship.rudderStr);
+        rb.AddRelativeForce(new Vector3(0, 0, Mathf.Sqrt(Mathf.Pow(velocity.x,  2) + Mathf.Pow(velocity.y , 2)) * ship.rudderStr));
+        // apply drag ??
+    }
+
+
+    void RotateCraft()
+    {
+
+        if (accelRotation)
+        {
+            AccelPitch();
+            AccelYaw();
+        } else
+        {
+            VelocPitch();
+            VelocYaw();
+            VelocRoll();
+        }
+        
+
         
     }
 
-  
-    void RotateCraft()
+    void AccelPitch()
+    {
+
+        Vector3 rotation = transform.InverseTransformDirection(rb.angularVelocity);
+
+
+        float pitchTarget = Input.GetAxis("Pitch");
+        float pitchAcceleration;
+
+        if (pitchTarget > 0 && -rotation.x >= ship.pitchMax && capRotation)
+        {
+            pitchAcceleration = 0;
+        }
+        else if (pitchTarget < 0 && (rotation.x >= ship.pitchMax) && capRotation)
+        {
+            pitchAcceleration = 0;
+        }
+        else
+        {
+            pitchAcceleration = pitchTarget;
+        }
+
+
+        rb.AddRelativeTorque(Vector3.left * ship.pitchAccel * pitchAcceleration);
+    }
+
+    void AccelYaw()
+    {
+
+        Vector3 rotation = transform.InverseTransformDirection(rb.angularVelocity);
+
+
+        float yawTarget = Input.GetAxis("Yaw");
+        float yawAcceleration;
+
+        if (yawTarget > 0 && -rotation.x >= ship.yawMax && capRotation)
+        {
+            yawAcceleration = 0;
+        }
+        else if (yawTarget < 0 && (rotation.x >= ship.yawMax) && capRotation)
+        {
+            yawAcceleration = 0;
+        }
+        else
+        {
+            yawAcceleration = yawTarget;
+        }
+
+
+        rb.AddRelativeTorque(Vector3.up * ship.yawAccel * yawAcceleration);
+    }
+
+
+
+
+
+    void VelocYaw()
     {
         Vector3 rotation = transform.InverseTransformDirection(rb.angularVelocity);
 
-        if (Math.Abs(Input.GetAxis("Yaw")) > .01)
-        {
-            rb.AddRelativeTorque(Vector3.up * ship.yaw * Input.GetAxis("Yaw"));
-            //torqueDir = torqueDir  +  Vector3.up * yaw * Input.GetAxis("Horizontal") + Vector3.left * pitch * Input.GetAxis("Vertical");
+        float yawTarget = Input.GetAxis("Yaw");// * ship.maxRotation;
+        float yawPresent = rotation.y / ship.yawMax;
+        float delta = yPid.Update(yawTarget, yawPresent, Time.deltaTime);
 
-        } else if (spacebreak || antiTumble)
-        {
-            if (rotation.y <= .1 && rotation.y >= -0.1)
-            {
-                rotation.y = 0;
-                Debug.Log("cancel y");
-            }
-            else if (rotation.y > .1)
-            {
-                rb.AddRelativeTorque(Vector3.up * ship.yaw * -1);
-            }
-            else if (rotation.y < -0.1)
-            {
-                rb.AddRelativeTorque(Vector3.up * ship.yaw);
-            }
-        }
+        if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
 
-        if (Math.Abs(Input.GetAxis("Roll")) > .01)
-        {
-            rb.AddRelativeTorque(Vector3.forward * -ship.roll * Input.GetAxis("Roll"));
-
-        }
-        else if (spacebreak || antiTumble)
-        {
-            if (rotation.z <= .1 && rotation.z >= -0.1)
-            {
-                rotation.z = 0;
-                Debug.Log("cancel y");
-            }
-            else if (rotation.z > .1)
-            {
-                rb.AddRelativeTorque(Vector3.forward * ship.roll * -1);
-            }
-            else if (rotation.z < -0.1)
-            {
-                rb.AddRelativeTorque(Vector3.forward * ship.roll);
-            }
-        }
-
-
-        if (Math.Abs(Input.GetAxis("Pitch")) > .01)
-        {
-            rb.AddRelativeTorque(Vector3.right * -ship.pitch * Input.GetAxis("Pitch"));
-        }
-        else if (spacebreak || antiTumble)
-        {
-            if (rotation.x <= .1 && rotation.x >= -0.1)
-            {
-                rotation.x = 0;
-                Debug.Log("cancel x");
-            }
-            else if (rotation.x > .1)
-            {
-                rb.AddRelativeTorque(Vector3.right * ship.yaw * -1);
-            }
-            else if (rotation.x < -0.1)
-            {
-                rb.AddRelativeTorque(Vector3.right * ship.yaw);
-            }
-        }
-
-        rb.angularVelocity = transform.TransformVector(rotation);
+        rb.AddRelativeTorque(Vector3.up * delta * ship.yawAccel);
     }
 
-    void AccelerateCraft()
+    void VelocPitch()
     {
-        Vector3 translation = transform.InverseTransformVector(rb.velocity);
-        bool powerslide = false;
-        if (velocityTranslation) velocityAcceleration(ref translation, ref powerslide);
-        else thrustAcceleration(ref translation, ref powerslide);
+        Vector3 rotation = transform.InverseTransformDirection(rb.angularVelocity);
 
-        if (spacebreak || antiSlide || powerslide)
-        {
-            if (translation.y < .1 && translation.y > -.1)
-            {
-                translation.y = 0;
-                rb.velocity = transform.TransformVector(translation);
-            }
-            else if (translation.y <= -0.1) rb.AddRelativeForce(Vector3.up * ship.acceleration);
-            else if (translation.y >=  0.1) rb.AddRelativeForce(Vector3.down * ship.acceleration);
+        float pitchTarget = -Input.GetAxis("Pitch");// * ship.maxRotation;
+        float pitchPresent = rotation.x / ship.pitchMax;
+        float delta = xPid.Update(pitchTarget, pitchPresent, Time.deltaTime);
 
-            if (translation.x < .1 && translation.x > -.1)
-            {
-                translation.x = 0;
-                rb.velocity = transform.TransformVector(translation);
-            }
-            else if (translation.x <= -0.1) rb.AddRelativeForce(Vector3.right * ship.acceleration);
-            else if (translation.x >=  0.1) rb.AddRelativeForce(Vector3.left * ship.acceleration);
-        }
+        if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
 
-        rb.velocity = transform.TransformVector(translation);
+        text4.text = "pid out" + delta + "   target" + pitchTarget + "    present" + pitchPresent + "   deltatime" + Time.deltaTime;
+        rb.AddRelativeTorque(Vector3.left * -delta * ship.pitchAccel);
     }
 
-    private void velocityAcceleration(ref Vector3 translation, ref bool powerslide)
+    void VelocRoll()
     {
-        float speedReqest = Input.GetAxis("Jump") * ship.maxSpeed;
-        if (translation.z > speedReqest)
-        {
-            rb.AddRelativeForce(Vector3.back * ship.acceleration);
-        }
-        else 
-        {
+        Vector3 rotation = transform.InverseTransformDirection(rb.angularVelocity);
 
-            rb.AddRelativeForce(Vector3.forward * ship.acceleration);
-        }
-        powerslide = true;
+        float rollTarget = -Input.GetAxis("Roll");// * ship.maxRotation;
+        float rollPresent = rotation.z / ship.rollMax;
+        float delta = zPid.Update(rollTarget, rollPresent, Time.deltaTime);
+
+        if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
+
+        text4.text = "pid out" + delta + "   target" + rollTarget + "    present" + rollPresent + "   deltatime" + Time.deltaTime;
+        rb.AddRelativeTorque(Vector3.back * -delta * ship.rollAccel);
     }
 
-    private void thrustAcceleration(ref Vector3 translation, ref bool powerslide)
-    {
-        if (Math.Abs(Input.GetAxis("Jump")) > .1)
-        {
-            if (translation.z >= ship.maxSpeed)
-            {
-                Debug.Log("halt accel");
-            }
-            else if (translation.magnitude >= ship.maxSpeed)
-            {
-                powerslide = true;
-                rb.AddRelativeForce(Input.GetAxis("Jump") * ship.acceleration * Vector3.forward);
-            }
-            else { rb.AddRelativeForce(Input.GetAxis("Jump") * ship.acceleration * Vector3.forward); }
-
-        }
-        else if (spacebreak || antiSlide)
-        {
-
-            if (translation.z < .1 && translation.z > -.1)
-            {
-                translation.z = 0;
-
-            }
-            else if (translation.z <= -0.1) rb.AddRelativeForce(Vector3.forward * ship.acceleration);
-            else if (translation.z >= .1 && spacebreak) rb.AddRelativeForce(Vector3.back * ship.acceleration);
-        }
-    }
 }
