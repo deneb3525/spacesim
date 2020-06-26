@@ -7,12 +7,10 @@ using System;
 public class PlayerController1 : MonoBehaviour
 {
     public ShipStats ship;
-    public PID xPid = new PID(100.0f, 0, 0, -1, 1);
-    public PID yPid = new PID(100.0f, 0, 0, -1, 1);
-    public PID zPid = new PID(100.0f, 0, 0, -1, 1);
-
+    public PidSettings pidSettings;
+    
     bool capRotation = true;
-    bool accelRotation = true;
+    bool accelRotation = false;
     public Text text1;
     public Text text2;
     public Text text3;
@@ -156,7 +154,7 @@ public class PlayerController1 : MonoBehaviour
 
         float yawTarget = Input.GetAxis("Yaw");// * ship.maxRotation;
         float yawPresent = rotation.y / ship.yawMax;
-        float delta = yPid.Update(yawTarget, yawPresent, Time.deltaTime);
+        float delta = pidSettings.yPid.Update(yawTarget, yawPresent, Time.deltaTime);
 
         if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
 
@@ -167,14 +165,14 @@ public class PlayerController1 : MonoBehaviour
     {
         Vector3 rotation = transform.InverseTransformDirection(rb.angularVelocity);
 
-        float pitchTarget = -Input.GetAxis("Pitch");// * ship.maxRotation;
-        float pitchPresent = rotation.x / ship.pitchMax;
-        float delta = xPid.Update(pitchTarget, pitchPresent, Time.deltaTime);
+        float pitchTarget = -Input.GetAxis("Pitch");// * ship.maxRotation; -1 to +1
+        float pitchPresent = rotation.x / ship.pitchMax; // -1 to +1
+        float delta = pidSettings.xPid.Update(pitchTarget, pitchPresent, Time.deltaTime);
 
-        if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
+        //if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
 
         text4.text = "pid out" + delta + "   target" + pitchTarget + "    present" + pitchPresent + "   deltatime" + Time.deltaTime;
-        rb.AddRelativeTorque(Vector3.left * -delta * ship.pitchAccel);
+        rb.AddRelativeTorque(Vector3.left * -delta * ship.pitchAccel * Time.deltaTime);
     }
 
     void VelocRoll()
@@ -183,7 +181,7 @@ public class PlayerController1 : MonoBehaviour
 
         float rollTarget = -Input.GetAxis("Roll");// * ship.maxRotation;
         float rollPresent = rotation.z / ship.rollMax;
-        float delta = zPid.Update(rollTarget, rollPresent, Time.deltaTime);
+        float delta = pidSettings.zPid.Update(rollTarget, rollPresent, Time.deltaTime);
 
         if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
 

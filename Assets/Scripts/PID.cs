@@ -8,6 +8,7 @@ public class PID
     public float deriv;
     public float present;
     public float min, max;
+    public float output;
 
 
     public PID(float pFactor, float iFactor, float dFactor,float min,float max)
@@ -22,12 +23,15 @@ public class PID
 
     public float Update(float setpoint, float actual, float timeFrame)
     {
-        present = Clamp(setpoint - actual);
+        present = setpoint - actual;
         integral += present * timeFrame;
         integral = Clamp(integral);
-        deriv = Clamp((present - lastError) / timeFrame);
+        
+        //deriv = Clamp((present - lastError) / timeFrame);
+        deriv = (lastError - present);
         lastError = present;
-        return present * pFactor + integral * iFactor + deriv * dFactor;
+        output = Clamp( present * pFactor + integral * iFactor + deriv * dFactor);
+        return output;
     }
 
     public float Clamp(float value)
