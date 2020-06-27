@@ -68,8 +68,26 @@ public class PlayerController1 : MonoBehaviour
 
         // apply rudder
         Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
-        rb.AddRelativeForce(new Vector3(-velocity.x, -velocity.y, 0) * ship.rudderStr);
-        rb.AddRelativeForce(new Vector3(0, 0, Mathf.Sqrt(Mathf.Pow(velocity.x,  2) + Mathf.Pow(velocity.y , 2)) * ship.rudderStr));
+        //rb.AddRelativeForce(new Vector3(-velocity.x, -velocity.y, 0) * ship.rudderStr);
+        //rb.AddRelativeForce(new Vector3(0, 0, Mathf.Sqrt(Mathf.Pow(velocity.x,  2) + Mathf.Pow(velocity.y , 2)) * ship.rudderStr));
+
+        // rudder v2
+
+        float x = -velocity.x;
+        float y = -velocity.y;
+        float z;
+        if(Input.GetAxis("thrust") > 0)
+        {
+            z = 1 - velocity.z;
+        } else
+        {
+            //z = -1 + velocity.z;
+            z = 0;
+        }
+
+        rb.AddRelativeForce(new Vector3(x, y, z) * ship.rudderStr);
+        
+        
         // apply drag ??
     }
 

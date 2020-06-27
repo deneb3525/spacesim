@@ -6,10 +6,10 @@ public class PID
     public float integral;
     float lastError;
     public float deriv;
-    public float present;
+    public float errorCurent;
     public float min, max;
     public float output;
-
+    public float deadband = .001f;
 
     public PID(float pFactor, float iFactor, float dFactor,float min,float max)
     {
@@ -23,14 +23,15 @@ public class PID
 
     public float Update(float setpoint, float actual, float timeFrame)
     {
-        present = setpoint - actual;
-        integral += present * timeFrame;
+        errorCurent = setpoint - actual;
+        if (System.Math.Abs(errorCurent) < .001) errorCurent = 0;
+        integral += errorCurent * timeFrame;
         integral = Clamp(integral);
         
         //deriv = Clamp((present - lastError) / timeFrame);
-        deriv = (lastError - present);
-        lastError = present;
-        output = Clamp( present * pFactor + integral * iFactor + deriv * dFactor);
+        deriv = (lastError - errorCurent);
+        lastError = errorCurent;
+        output = Clamp( errorCurent * pFactor + integral * iFactor + deriv * dFactor);
         return output;
     }
 
