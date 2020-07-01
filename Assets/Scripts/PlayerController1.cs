@@ -52,11 +52,12 @@ public class PlayerController1 : MonoBehaviour
     private void UpdateText()
     {
         Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
-        text1.text = rb.angularVelocity.ToString();
+        text1.text = "angveloc: " + rb.angularVelocity.ToString();
         Vector3 v3 = new Vector3(-velocity.x, -velocity.y, 0) * ship.rudderStr;
-        text2.text = v3.ToString();
-        
-        text3.text = transform.InverseTransformDirection(rb.velocity).normalized.ToString();
+        text2.text = "pitch:" + Input.GetAxis("Pitch") + " yaw:" + Input.GetAxis("Yaw") + "roll: " + Input.GetAxis("Roll") + " thrust:" + Input.GetAxis("thrust");
+
+
+        //text3.text = transform.InverseTransformDirection(rb.velocity).normalized.ToString();
         text4.text = rb.velocity.ToString();
 
     }
@@ -67,25 +68,54 @@ public class PlayerController1 : MonoBehaviour
         rb.AddRelativeForce(Vector3.forward * Input.GetAxis("thrust") * ship.thrust);
 
         // apply rudder
-        Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
+        //Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
         //rb.AddRelativeForce(new Vector3(-velocity.x, -velocity.y, 0) * ship.rudderStr);
         //rb.AddRelativeForce(new Vector3(0, 0, Mathf.Sqrt(Mathf.Pow(velocity.x,  2) + Mathf.Pow(velocity.y , 2)) * ship.rudderStr));
 
+        /*
         // rudder v2
-
         float x = -velocity.x;
         float y = -velocity.y;
         float z;
         if(Input.GetAxis("thrust") > 0)
         {
+            if(velocity.z > 0)
+            {
             z = 1 - velocity.z;
+            } else
+            {
+                z = 0;
+            }
+
         } else
         {
             //z = -1 + velocity.z;
             z = 0;
         }
+        **/
 
-        rb.AddRelativeForce(new Vector3(x, y, z) * ship.rudderStr);
+        /*
+        Vector3 velocity = transform.InverseTransformDirection(rb.velocity);
+
+        Vector3 countervelocy = (velocity / Vector3.Dot(velocity.normalized, Vector3.forward)) - velocity;
+        */
+
+        // rudder v3
+
+        Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
+        String velocString = velocity.ToString();
+        if (velocity.z < .001)
+        {
+            velocity.z = .001f;
+        }
+        float planeIntercept = velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z;
+        float zIntercept = planeIntercept / velocity.z;
+
+        Vector3 counterVelocty = new Vector3(0, 0, zIntercept) - velocity;
+
+        text3.text = "veloc: " + velocString + " adjveloc: " + velocity + " cvloc: " + counterVelocty;
+
+        rb.AddRelativeForce(counterVelocty.normalized * ship.rudderStr);
         
         
         // apply drag ??
@@ -170,13 +200,11 @@ public class PlayerController1 : MonoBehaviour
     {
         Vector3 rotation = transform.InverseTransformDirection(rb.angularVelocity);
 
-        float yawTarget = Input.GetAxis("Yaw");// * ship.maxRotation;
+        float yawTarget = Input.GetAxis("Yaw"); // * ship.maxRotation;
         float yawPresent = rotation.y / ship.yawMax;
         float delta = pidSettings.yPid.Update(yawTarget, yawPresent, Time.deltaTime);
 
-        if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
-
-        rb.AddRelativeTorque(Vector3.up * delta * ship.yawAccel);
+        rb.AddRelativeTorque(Vector3.up * delta * ship.yawAccel * Time.deltaTime);
     }
 
     void VelocPitch()
@@ -187,9 +215,6 @@ public class PlayerController1 : MonoBehaviour
         float pitchPresent = rotation.x / ship.pitchMax; // -1 to +1
         float delta = pidSettings.xPid.Update(pitchTarget, pitchPresent, Time.deltaTime);
 
-        //if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
-
-        text4.text = "pid out" + delta + "   target" + pitchTarget + "    present" + pitchPresent + "   deltatime" + Time.deltaTime;
         rb.AddRelativeTorque(Vector3.left * -delta * ship.pitchAccel * Time.deltaTime);
     }
 
@@ -201,10 +226,8 @@ public class PlayerController1 : MonoBehaviour
         float rollPresent = rotation.z / ship.rollMax;
         float delta = pidSettings.zPid.Update(rollTarget, rollPresent, Time.deltaTime);
 
-        if (delta > 1) delta = 1; else if (delta < -1) delta = -1;
-
-        text4.text = "pid out" + delta + "   target" + rollTarget + "    present" + rollPresent + "   deltatime" + Time.deltaTime;
         rb.AddRelativeTorque(Vector3.back * -delta * ship.rollAccel);
+
     }
 
 }
