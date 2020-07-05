@@ -11,11 +11,16 @@ public class PlayerController1 : MonoBehaviour
     
     bool capRotation = true;
     bool accelRotation = false;
-    bool vJoyEnabled = false;
+    bool vJoyEnabled = true;
+    bool throttleEnabled = false;
+
+    float throttleSetpoint = 0;
+
     public Text speedText;
     public Text text2;
     public Text text3;
     public Text text4;
+    public Text throttle;
 
 
 
@@ -34,6 +39,23 @@ public class PlayerController1 : MonoBehaviour
     {
         TrackToggles();
         UpdateText();
+        UpdateThrottleSetpoint();
+    }
+
+    void UpdateThrottleSetpoint()
+    {
+        throttleSetpoint = Input.GetAxis("thrust");
+        if (!throttleEnabled)
+        {
+            throttle.text = "Acceleration input: raw";
+        } else if(throttleSetpoint >= 0)
+        {
+            throttle.text = "Speed Setpoint: " + (throttleSetpoint * ship.maxVelocity);
+        } else
+        {
+            throttle.text = "Speed Setpoint: " + -(throttleSetpoint * ship.minVelocity);
+        }
+
     }
 
     void FixedUpdate()
@@ -48,6 +70,7 @@ public class PlayerController1 : MonoBehaviour
         if (Input.GetButtonDown("capRotation")) capRotation = !capRotation;
         if (Input.GetButtonDown("accelRotation")) accelRotation = !accelRotation;
         if (Input.GetButtonDown("enableVJoy")) vJoyEnabled = !vJoyEnabled;
+        if (Input.GetButtonDown("enableThrottle")) throttleEnabled = !throttleEnabled;
      }
 
 
@@ -67,40 +90,78 @@ public class PlayerController1 : MonoBehaviour
     void AccelCraft()
     {
         // apply acceleration
-        rb.AddRelativeForce(Vector3.forward * Input.GetAxis("thrust") * ship.thrust * Time.deltaTime);
-        
-        // rudder v3
-        if (Input.GetAxis("thrust") >= 0)
+        if (throttleEnabled)
         {
-            Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
-            float angle = Vector3.Angle(Vector3.forward, velocity);
+            Vector3 velocity = transform.InverseTransformDirection(rb.velocity);
 
-
-            text4.text = "angle: " + angle;
-            if (angle > .1f)
+            float speedPresent;
+            if (velocity.z >= 0)
             {
-                String velocString = velocity.ToString();
-                if (velocity.z < .0001)
-                {
-                    velocity.z = .0001f;
-                }
-                float planeIntercept = velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z;
-                float zIntercept = (planeIntercept / velocity.z) *.999f;
-                float deadband;
-                if(angle < 5)
-                {
-                    deadband = angle / 5;
-                } else
-                {
-                    deadband = 1;
-                }
-
-                Vector3 rudderVector = (new Vector3(0, 0, zIntercept) - velocity).normalized;
-
-                text3.text = "veloc: " + velocString + " adjveloc: " + velocity + " cvloc: " + rudderVector + " angle: " + angle + "magnatude: " + (ship.rudderStr * Time.deltaTime * (100 + angle * 5) / 100 * deadband);
-
-                rb.AddRelativeForce(rudderVector.normalized * ship.rudderStr * Time.deltaTime*(100 + angle*5)/100 *deadband);
+                speedPresent = velocity.magnitude / ship.maxVelocity;
+            } else
+            {
+                speedPresent = velocity.magnitude / ship.minVelocity;
             }
+            float delta = pidSettings.throttlePid.Update(throttleSetpoint, speedPresent, Time.deltaTime);
+
+            rb.AddRelativeForce(Vector3.forward * delta * ship.thrust * Time.deltaTime);
+        } else
+        {
+            rb.AddRelativeForce(Vector3.forward * Input.GetAxis("thrust") * ship.thrust * Time.deltaTime);
+        }
+
+
+
+        if (vJoyEnabled && !Input.GetKey("f"))
+        {
+            // rudder v3
+            if (Input.GetAxis("thrust") >= 0)
+            {
+                Vector3 velocity = transform.InverseTransformDirection(rb.velocity).normalized;
+                float angle = Vector3.Angle(Vector3.forward, velocity);
+
+
+                text4.text = "angle: " + angle;
+                if (angle > .1f)
+                {
+                    String velocString = velocity.ToString();
+                    if (velocity.z < .0001)
+                    {
+                        velocity.z = .0001f;
+                    }
+                    float planeIntercept = velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z;
+                    float zIntercept = (planeIntercept / velocity.z) * .999f;
+                    float deadband;
+                    if (angle < 5)
+                    {
+                        deadband = angle / 5;
+                    }
+                    else
+                    {
+                        deadband = 1;
+                    }
+
+                    Vector3 rudderVector = (new Vector3(0, 0, zIntercept) - velocity).normalized;
+
+                    text3.text = "veloc: " + velocString + " adjveloc: " + velocity + " cvloc: " + rudderVector + " angle: " + angle + "magnatude: " + (ship.rudderStr * Time.deltaTime * (100 + angle * 5) / 100 * deadband);
+
+                    rb.AddRelativeForce(rudderVector.normalized * ship.rudderStr * Time.deltaTime * (100 + angle * 5) / 100 * deadband);
+                }
+            }
+        }
+
+        if (Input.GetKey("f"))
+        {
+            float deadband;
+            float velocMag = rb.velocity.magnitude;
+            if (velocMag < 1)
+            {
+                deadband = velocMag;
+            } else
+            {
+                deadband = 1;
+            }
+            rb.AddRelativeForce(-rb.velocity.normalized * ship.rudderStr * Time.deltaTime *  deadband);
         }
         
         /*

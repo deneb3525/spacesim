@@ -22,4 +22,7 @@ public class ShipStats : MonoBehaviour
     public float rudderStr;
     public float thrust;
     public float drag;
+
+    public float minVelocity;
+    public float maxVelocity;
 }
