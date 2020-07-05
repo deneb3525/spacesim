@@ -24,7 +24,7 @@ public class PID
     public float Update(float setpoint, float actual, float timeFrame)
     {
         errorCurent = setpoint - actual;
-        if (System.Math.Abs(errorCurent) < .001) errorCurent = 0;
+        if (System.Math.Abs(errorCurent) < .0000000001) errorCurent = 0;
         integral += errorCurent * timeFrame;
         integral = Clamp(integral);
         
